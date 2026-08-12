@@ -8,7 +8,9 @@ services:
     environment:
       API_BASE_URL: ${API_BASE_URL:-https://www.leilasinorebooksapi.online}
     ports:
-      - "${HOST_PORT:-80}:80"
+      # Only the EC2 host can reach the container. Host Nginx owns public
+      # ports 80/443 and proxies requests to this loopback-only port.
+      - "${HOST_BIND_ADDRESS:-127.0.0.1}:${HOST_PORT:-8080}:80"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
       interval: 30s

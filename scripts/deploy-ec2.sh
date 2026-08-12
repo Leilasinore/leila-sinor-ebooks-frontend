@@ -41,7 +41,12 @@ ECR_REGISTRY=${IMAGE_URI%%/*}
 aws ecr get-login-password --region "$AWS_REGION" \
   | docker login --username AWS --password-stdin "$ECR_REGISTRY"
 
-export IMAGE_URI API_BASE_URL
+# The container must not compete with host Nginx for ports 80 and 443, and its
+# unencrypted HTTP endpoint should not be reachable from the internet.
+HOST_BIND_ADDRESS=${HOST_BIND_ADDRESS:-127.0.0.1}
+HOST_PORT=${HOST_PORT:-8080}
+
+export IMAGE_URI API_BASE_URL HOST_BIND_ADDRESS HOST_PORT
 
 current_container=$(docker compose ps -q frontend || true)
 previous_image=""
@@ -54,7 +59,8 @@ docker compose up -d --no-build --remove-orphans frontend
 
 attempt=1
 while [ "$attempt" -le 12 ]; do
-  if curl --fail --silent --show-error http://127.0.0.1/healthz >/dev/null; then
+  if curl --fail --silent --show-error \
+    "http://127.0.0.1:${HOST_PORT}/healthz" >/dev/null; then
     echo "Deployment is healthy: $IMAGE_URI"
     exit 0
   fi

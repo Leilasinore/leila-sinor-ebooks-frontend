@@ -107,7 +107,10 @@ jobs:
       - name: Prepare Systems Manager deployment payload
         run: |
           set -euo pipefail
-          deployment_archive=$(tar -czf - compose.yaml scripts/deploy-ec2.sh | base64 --wrap=0)
+          deployment_archive=$(tar -czf - \
+            compose.yaml \
+            deploy/nginx/app.leilasinorebooksapi.online.conf \
+            scripts/deploy-ec2.sh | base64 --wrap=0)
 
           jq -n \
             --arg archive "$deployment_archive" \

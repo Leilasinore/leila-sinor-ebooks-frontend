@@ -19,8 +19,9 @@ The finished deployment works like this:
    SSH port or SSH key is needed.
 7. The EC2 instance uses its own IAM role to read `API_BASE_URL` from Secrets
    Manager and pull the exact commit image from ECR.
-8. Docker Compose starts Nginx and checks `/healthz`. If a previous release
-   exists and the new one is unhealthy, the script restores the previous image.
+8. Docker Compose starts the container on `127.0.0.1:8080` and checks
+   `/healthz`. If a previous release exists and the new one is unhealthy, the
+   script restores the previous image.
 
 Allow about 45–90 minutes for the one-time setup. Complete the steps in order.
 
@@ -193,7 +194,8 @@ this application's ECR repository and secret.
 5. Under **Key pair**, choose **Proceed without a key pair**. Systems Manager
    replaces SSH for deployment and administration.
 6. Under **Network settings**, create a security group with:
-   - inbound TCP `80` for the first HTTP verification;
+   - inbound TCP `80` for HTTP validation and redirects;
+   - inbound TCP `443` for HTTPS;
    - no inbound TCP `22` rule;
    - outbound HTTPS (`443`) and the other outbound access required during
      bootstrap to reach Ubuntu, Docker, Snap, AWS CLI, ECR, Secrets Manager, and
@@ -220,7 +222,7 @@ layers.
 
 The official Ubuntu AMI normally includes SSM Agent. The user-data bootstrap
 starts the agent first, then installs Docker Engine, Compose v2, AWS CLI v2,
-`jq`, and `curl`.
+host Nginx, `jq`, and `curl`.
 
 In the AWS console:
 
@@ -419,10 +421,10 @@ Review the changes, then commit them through your normal review process:
 ```bash
 git status --short
 git add .dockerignore .env.example .github/workflows/deploy.yml \
-  Dockerfile compose.yaml docker nginx public/config.js \
+  Dockerfile compose.yaml deploy/nginx docker nginx public/config.js \
   scripts/bootstrap-ec2.sh scripts/deploy-ec2.sh \
   src/api/client.ts src/runtime-config.d.ts index.html README.md \
-  docs/aws-ec2-deployment.md
+  docs/aws-ec2-deployment.md docs/ec2-nginx-ssl.md
 git diff --cached
 git commit -m "Deploy the frontend through AWS Systems Manager"
 git push origin main
@@ -450,15 +452,15 @@ The last step prints the SSM command ID, status updates, and the remote command'
 stdout/stderr. Success ends with `Deployment is healthy:` and the commit-tagged
 ECR image URI.
 
-## 11. Verify the live deployment
+## 11. Verify the container deployment
 
-For a direct HTTP test, replace `EC2_ADDRESS` with the Elastic IP or public DNS
-name:
+Open an EC2 Session Manager connection and verify the loopback-only application
+endpoint:
 
 ```bash
-curl --fail --show-error http://EC2_ADDRESS/healthz
-curl --fail --show-error http://EC2_ADDRESS/config.js
-curl --fail --show-error http://EC2_ADDRESS/ | head
+curl --fail --show-error http://127.0.0.1:8080/healthz
+curl --fail --show-error http://127.0.0.1:8080/config.js
+curl --fail --show-error http://127.0.0.1:8080/ | head
 ```
 
 Expected results:
@@ -467,12 +469,8 @@ Expected results:
 - `/config.js` contains the correct `API_BASE_URL`;
 - `/` returns the application's HTML.
 
-Open `http://EC2_ADDRESS` in a browser and verify that the page renders, direct
-React Router URLs work, and API calls reach the expected backend without CORS or
-mixed-content errors.
-
-To inspect the release without SSH, open an EC2 Session Manager connection and
-run:
+The container is intentionally unavailable through the Elastic IP until host
+Nginx is configured. Inspect the release without SSH:
 
 ```bash
 cd /opt/leila-sinor-ebooks-frontend
@@ -485,28 +483,18 @@ sudo docker inspect --format '{{.Config.Image}}' \
 You can also inspect the deployment under **Systems Manager** → **Run Command** →
 **Command history**, using the command ID printed by GitHub Actions.
 
-## 12. Put HTTPS in front of the instance before production use
+## 12. Connect the Elastic IP domain and enable HTTPS
 
-The repository container listens on HTTP port 80. Do not serve login, account,
-or checkout traffic to customers over plain HTTP.
+Do not serve login, account, or checkout traffic to customers over plain HTTP.
+For the Elastic IP and Route 53 setup, complete the dedicated
+[Nginx and SSL guide](ec2-nginx-ssl.md). It installs the repository's host Nginx
+configuration, routes `app.leilasinorebooksapi.online` to the container on
+`127.0.0.1:8080`, obtains a Let's Encrypt certificate with Certbot, redirects
+HTTP to HTTPS, and verifies automatic renewal.
 
-A common AWS production setup is:
-
-1. Request an ACM certificate for the frontend domain.
-2. Create an Application Load Balancer in public subnets.
-3. Create an HTTP target group pointing to EC2 port 80, with health-check path
-   `/healthz`.
-4. Add an HTTPS 443 listener using the ACM certificate.
-5. Redirect the load balancer's HTTP 80 listener to HTTPS 443.
-6. Point the domain's DNS record to the load balancer.
-7. Change the EC2 security group so port 80 accepts traffic only from the load
-   balancer's security group.
-8. Keep port 22 closed. Systems Manager still uses outbound port 443.
-9. Update backend CORS to allow `https://YOUR_FRONTEND_DOMAIN`.
-10. Verify the HTTPS health endpoint, home page, routes, and API calls.
-
-GitHub continues targeting `EC2_INSTANCE_ID`; visitors use the load balancer's
-HTTPS domain.
+An Application Load Balancer with an ACM certificate is an alternative when
+you need multiple instances or load-balancer health checks. Do not configure
+both architectures for the same DNS record.
 
 ## 13. Routine deployments, configuration, and rollback
 
@@ -617,7 +605,7 @@ wildcard.
 `DOCKER_PLATFORM` does not match the EC2 CPU architecture. In Session Manager,
 run `uname -m`: `x86_64` needs `linux/amd64`; `aarch64` needs `linux/arm64`.
 
-### Port 80 is already allocated
+### Host Nginx cannot bind port 80
 
 In Session Manager, find the process using it:
 
@@ -625,7 +613,9 @@ In Session Manager, find the process using it:
 sudo ss -ltnp '( sport = :80 )'
 ```
 
-Stop or reconfigure that service before rerunning deployment.
+Host Nginx should own port 80. If `docker-proxy` owns it, deploy the current
+Compose configuration so the container moves to `127.0.0.1:8080`, then start
+Nginx. Do not stop Nginx merely to make Docker public on port 80.
 
 ### Health check fails
 
@@ -635,11 +625,11 @@ In Session Manager, run:
 cd /opt/leila-sinor-ebooks-frontend
 sudo docker compose ps
 sudo docker compose logs --tail=200 frontend
-curl --verbose http://127.0.0.1/healthz
+curl --verbose http://127.0.0.1:8080/healthz
 ```
 
-Check that the image was pulled, port 80 is free, and the secret contains a
-valid `http://` or `https://` URL.
+Check that the image was pulled, the loopback port is available, and the secret
+contains a valid `http://` or `https://` URL.
 
 ### The page loads but API requests fail
 
