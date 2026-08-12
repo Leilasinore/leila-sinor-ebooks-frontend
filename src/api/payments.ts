@@ -15,5 +15,6 @@ export async function getPayments(page = 0, size = 5): Promise<PagedResponse<Pay
   const res = await api.get("/api/payments", {
     params: { page, size,sort: "createdAt,desc" },
   });
+
   return res.data;
 }
