@@ -55,19 +55,16 @@ export type InitiatePaymentRequest = {
 };
 
 export type PaymentResponse = {
-  id?: number;
-  orderId?: number;
-  amount?: number;
-  phoneNumber?: string;
+  id: number;
+  orderId: number;
+  amount: number;
+  phoneNumber: string;
   status: "INITIATED" | "SUCCESS" | "FAILED";
-  message?: string;
   mpesaReceiptNumber?: string;
   merchantRequestId?: string;
   checkoutRequestId?: string;
-  resultCode?: number;
-  resultDesc?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  resultCode?: string;
+  resultDescription?: string;
+  createdAt: string;
+  updatedAt: string;
 };
-
-export type BookPayload = Omit<Book, "id">;

@@ -1,0 +1,5 @@
+--- src/pages/BooksPage.tsx
++++ src/pages/BooksPage.tsx
+@@ -96 +96 @@
+-        {error && <Alert severity="error" action={<Button color="inherit" onClick={() => setPage((value) => value)}>Retry</Button>} sx={{ mb: 3 }}>{error}</Alert>
++        {error && <Alert severity="error" action={<Button color="inherit" onClick={() => setRequest((value) => value + 1)}>Retry</Button>} sx={{ mb: 3 }}>{error}</Alert>

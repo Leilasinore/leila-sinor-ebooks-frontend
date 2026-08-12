@@ -1,76 +1,45 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom";
-import { getPayments } from "../api/payments";
+import { Box, Button, Card, CardContent, Container, Divider, Stack, Typography } from "@mui/material";
+import { CheckRounded, HomeRounded, ReceiptLongOutlined } from "@mui/icons-material";
+import { Link, useLocation } from "react-router-dom";
 import type { OrderResponse, PaymentResponse } from "../types";
+import StatusChip from "../components/StatusChip";
+import { money } from "../utils/format";
 
-type LocationState = {
-  payment?: PaymentResponse;
-  order?: OrderResponse;
-};
+type LocationState = { payment?: PaymentResponse; order?: OrderResponse };
 
 export default function SuccessPage() {
-  const location = useLocation();
-  const state = location.state as LocationState | null;
-
+  const state = useLocation().state as LocationState | null;
   const storedPayment = sessionStorage.getItem("currentPayment");
-  const payment: PaymentResponse | null =
-    state?.payment || (storedPayment ? JSON.parse(storedPayment) : null);
-
-  const [recentPayments, setRecentPayments] = useState<PaymentResponse[]>([]);
-
-  useEffect(() => {
-    async function loadPayments() {
-      try {
-        const data = await getPayments(0, 5);
-        setRecentPayments(data.content);
-      } catch (error) {
-        console.error(error);
-      }
-    }
-
-    loadPayments();
-  }, []);
+  const storedOrder = sessionStorage.getItem("currentOrder");
+  const payment = state?.payment || (storedPayment ? JSON.parse(storedPayment) as PaymentResponse : null);
+  const order = state?.order || (storedOrder ? JSON.parse(storedOrder) as OrderResponse : null);
 
   if (!payment) {
-    return <p>No payment data found.</p>;
+    return <Container maxWidth="sm" sx={{ py: 10, textAlign: "center" }}><Typography variant="h4">No recent payment found</Typography><Button component={Link} to="/" sx={{ mt: 3 }}>Return to the bookshop</Button></Container>;
   }
 
   return (
-    <div>
-      <h1>Payment Successful</h1>
-      <div className="card">
-        <p><strong>Order ID:</strong> {payment.orderId}</p>
-        <p><strong>Payment Status:</strong> {payment.status}</p>
-        <p><strong>Amount:</strong> KSh {payment.amount}</p>
-        <p><strong>Phone Number:</strong> {payment.phoneNumber}</p>
-        <p><strong>M-Pesa Receipt Number:</strong> {payment.mpesaReceiptNumber || "Not available yet"}</p>
-      </div>
-
-      <h2>Recent Payments</h2>
-      <div className="card">
-        <table width="100%">
-          <thead>
-            <tr>
-              <th align="left">Payment ID</th>
-              <th align="left">Order ID</th>
-              <th align="left">Amount</th>
-              <th align="left">Status</th>
-              <th align="left">M-Pesa Receipt</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recentPayments.map((p) => (
-              <tr key={p.id}>
-                <td>{p.id}</td>
-                <td>{p.orderId}</td>
-                <td>KSh {p.amount}</td>
-                <td>{p.status}</td>
-                <td>{p.mpesaReceiptNumber || "-"}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <Container maxWidth="sm" sx={{ py: { xs: 6, md: 10 } }}>
+      <Card sx={{ overflow: "visible" }}>
+        <CardContent sx={{ p: { xs: 3, md: 5 }, textAlign: "center" }}>
+          <Box sx={{ width: 82, height: 82, borderRadius: "50%", bgcolor: "success.main", color: "white", display: "grid", placeItems: "center", mx: "auto", mt: -9, boxShadow: "0 12px 30px rgba(45,125,91,.3)" }}><CheckRounded sx={{ fontSize: 48 }} /></Box>
+          <Typography variant="overline" color="success.main" fontWeight={900} letterSpacing=".15em" sx={{ display: "block", mt: 3 }}>Payment received</Typography>
+          <Typography variant="h3" mt={.5}>Thank you!</Typography>
+          <Typography color="text.secondary" mt={1}>Your order is confirmed. We’ve saved the details below for your records.</Typography>
+          <Divider sx={{ my: 4 }} />
+          <Stack spacing={2.2} textAlign="left">
+            <Stack direction="row" justifyContent="space-between"><Typography color="text.secondary">Order number</Typography><Typography fontWeight={800}>#{payment.orderId || order?.id}</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography color="text.secondary">Amount paid</Typography><Typography fontWeight={800}>{money(payment.amount || order?.totalAmount)}</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography color="text.secondary">Phone</Typography><Typography fontWeight={800}>{payment.phoneNumber || order?.customerPhone}</Typography></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography color="text.secondary">Status</Typography><StatusChip status={payment.status} /></Stack>
+            <Stack direction="row" justifyContent="space-between"><Typography color="text.secondary">M-Pesa receipt</Typography><Typography fontWeight={800}>{payment.mpesaReceiptNumber || "Pending sync"}</Typography></Stack>
+          </Stack>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} mt={4}>
+            <Button fullWidth component={Link} to="/" variant="contained" startIcon={<HomeRounded />}>Continue shopping</Button>
+            <Button fullWidth component={Link} to="/manage/orders" variant="outlined" startIcon={<ReceiptLongOutlined />}>View orders</Button>
+          </Stack>
+        </CardContent>
+      </Card>
+    </Container>
   );
 }

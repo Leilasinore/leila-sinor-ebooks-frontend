@@ -1,0 +1,28 @@
+--- src/types/index.ts
++++ src/types/index.ts
+@@ -57,14 +57,17 @@
+ export type PaymentResponse = {
+-  id: number;
+-  orderId: number;
+-  amount: number;
+-  phoneNumber: string;
++  id?: number;
++  orderId?: number;
++  amount?: number;
++  phoneNumber?: string;
+   status: "INITIATED" | "SUCCESS" | "FAILED";
++  message?: string;
+   mpesaReceiptNumber?: string;
+   merchantRequestId?: string;
+   checkoutRequestId?: string;
+-  resultCode?: string;
+-  resultDescription?: string;
+-  createdAt: string;
+-  updatedAt: string;
++  resultCode?: number;
++  resultDesc?: string;
++  createdAt?: string;
++  updatedAt?: string;
+ };
++
++export type BookPayload = Omit<Book, "id">;

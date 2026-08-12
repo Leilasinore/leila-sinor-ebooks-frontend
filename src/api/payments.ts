@@ -13,7 +13,7 @@ export async function getPaymentById(id: number): Promise<PaymentResponse> {
 
 export async function getPayments(page = 0, size = 5): Promise<PagedResponse<PaymentResponse>> {
   const res = await api.get("/api/payments", {
-    params: { page, size },
+    params: { page, size,sort: "createdAt,desc" },
   });
   return res.data;
 }
