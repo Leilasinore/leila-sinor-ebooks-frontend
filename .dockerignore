@@ -1,0 +1,15 @@
+.git
+.github
+.idea
+.vscode
+node_modules
+dist
+*.log
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+Dockerfile*
+compose*.yml
+README.md
