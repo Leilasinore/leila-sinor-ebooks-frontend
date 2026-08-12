@@ -96,7 +96,7 @@ export default function BooksPage() {
           />
         </Stack>
 
-        {error && <Alert severity="error" action={<Button color="inherit" onClick={() => setPage((value) => value)}>Retry</Button>} sx={{ mb: 3 }}>{error}</Alert>}
+        {error && <Alert severity="error" action={<Button color="inherit" onClick={() => setRequest((value) => value + 1)}>Retry</Button>} sx={{ mb: 3 }}>{error}</Alert>}
         {loading ? <LoadingGrid /> : visible.length ? (
           <Grid container spacing={3}>
             {visible.map((book) => <Grid key={book.id} size={{ xs: 12, sm: 6, md: 4, lg: 3 }}><BookCard book={book} onAddToCart={handleAdd} /></Grid>)}
