@@ -11,7 +11,7 @@ fi
 snap start amazon-ssm-agent
 
 apt-get update
-apt-get install -y ca-certificates curl jq unzip
+apt-get install -y ca-certificates curl jq nginx unzip
 
 # Install Docker Engine, Buildx, and the Compose v2 plugin from Docker's Ubuntu
 # repository. This avoids the legacy docker-compose package.
@@ -34,6 +34,7 @@ apt-get update
 apt-get install -y docker-ce docker-ce-cli containerd.io \
   docker-buildx-plugin docker-compose-plugin
 systemctl enable --now docker
+systemctl enable --now nginx
 
 if id ubuntu >/dev/null 2>&1; then
   usermod -aG docker ubuntu
